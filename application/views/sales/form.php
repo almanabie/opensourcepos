@@ -2,20 +2,23 @@
 
 <ul id="error_message_box" class="error_message_box"></ul>
 
-<?php echo form_open("sales/save/".$sale_info['sale_id'], array('id'=>'sales_edit_form', 'class'=>'form-horizontal')); ?>
+<?php error_log('>>> sale_info.sale_id-' . $sale_info->sale_id); ?>
+
+<?php echo form_open("sales/save/".$sale_info->sale_id, array('id'=>'sales_edit_form', 'class'=>'form-horizontal')); ?>
 	<fieldset id="sale_basic_info">
 		<div class="form-group form-group-sm">
 			<?php echo form_label($this->lang->line('sales_receipt_number'), 'receipt_number', array('class'=>'control-label col-xs-3')); ?>
-			<?php echo anchor('sales/receipt/'.$sale_info['sale_id'], 'POS ' . $sale_info['sale_id'], array('target'=>'_blank', 'class'=>'control-label col-xs-8', "style"=>"text-align:left"));?>
+			<?php echo anchor('sales/receipt/'.$sale_info->sale_id, 'POS ' . $sale_info->sale_id, array('target'=>'_blank', 'class'=>'control-label col-xs-8', "style"=>"text-align:left"));?>
 		</div>
 		
 		<div class="form-group form-group-sm">
 			<?php echo form_label($this->lang->line('sales_date'), 'date', array('class'=>'control-label col-xs-3')); ?>
 			<div class='col-xs-8'>
-				<?php echo form_input(array('name'=>'date','value'=>to_datetime(strtotime($sale_info['sale_time'])), 'class'=>'datetime form-control input-sm'));?>
+				<?php echo form_input(array('name'=>'date','value'=>to_datetime(strtotime($sale_info->sale_time)), 'class'=>'datetime form-control input-sm'));?>
 			</div>
 		</div>
-		
+		<?php error_log('>>> sale_info.sale_time-' . to_datetime(strtotime($sale_info->sale_time))); ?>
+
 		<?php
 		if($this->config->item('invoice_enable') == TRUE)
 		{
@@ -23,12 +26,38 @@
 			<div class="form-group form-group-sm">
 				<?php echo form_label($this->lang->line('sales_invoice_number'), 'invoice_number', array('class'=>'control-label col-xs-3')); ?>
 				<div class='col-xs-8'>
-					<?php if(!empty($sale_info["invoice_number"]) && isset($sale_info['customer_id']) && !empty($sale_info['email'])): ?>
-						<?php echo form_input(array('name'=>'invoice_number', 'size'=>10, 'value'=>$sale_info['invoice_number'], 'id'=>'invoice_number', 'class'=>'form-control input-sm'));?>
+					<?php if(!empty($sale_info->invoice_number) && isset($customer_info->customer_id) && !empty($customer_info->email)): ?>
+						<?php echo form_input(array('name'=>'invoice_number', 'size'=>10, 'value'=>$sale_info->invoice_number, 'id'=>'invoice_number', 'class'=>'form-control input-sm'));?>
 						<a id="send_invoice" href="javascript:void(0);"><?php echo $this->lang->line('sales_send_invoice');?></a>
 					<?php else: ?>
-						<?php echo form_input(array('name'=>'invoice_number', 'value'=>$sale_info['invoice_number'], 'id'=>'invoice_number', 'class'=>'form-control input-sm'));?>
+						<?php echo form_input(array('name'=>'invoice_number', 'value'=>$sale_info->invoice_number, 'id'=>'invoice_number', 'class'=>'form-control input-sm'));?>
 					<?php endif; ?>
+				</div>
+			</div>
+			<?php error_log('>>> customer_info.email-' . $customer_info->email); ?>
+		<?php
+		}
+		?>
+
+		<?php
+		if($balance_due)
+		{
+		?>
+			<div class="form-group form-group-sm">
+				<?php echo form_label($this->lang->line('sales_payment'), 'payment_new', array('class'=>'control-label col-xs-3')); ?>
+				<div class='col-xs-4'>
+					<?php echo form_dropdown('payment_type_new', $new_payment_options, $payment_type_new, array('id'=>'payment_types_new', 'class'=>'form-control')); ?>
+				</div>
+				<div class='col-xs-4'>
+					<div class="input-group input-group-sm">
+						<?php if(!currency_side()): ?>
+							<span class="input-group-addon input-sm"><b><?php echo $this->config->item('currency_symbol'); ?></b></span>
+						<?php endif; ?>
+						<?php echo form_input(array('name'=>'payment_amount_new', 'value'=>$payment_amount_new, 'id'=>'payment_amount_new', 'class'=>'form-control input-sm'));?>
+						<?php if (currency_side()): ?>
+							<span class="input-group-addon input-sm"><b><?php echo $this->config->item('currency_symbol'); ?></b></span>
+						<?php endif; ?>
+					</div>
 				</div>
 			</div>
 		<?php
@@ -44,6 +73,7 @@
 				<?php echo form_label($this->lang->line('sales_payment'), 'payment_'.$i, array('class'=>'control-label col-xs-3')); ?>
 				<div class='col-xs-4'>
 						<?php // no editing of Gift Card payments as it's a complex change ?>
+						<?php echo form_hidden('payment_id_'.$i, $row->payment_id); ?>
 						<?php if( !empty(strstr($row->payment_type, $this->lang->line('sales_giftcard'))) ): ?>
 							<?php echo form_input(array('name'=>'payment_type_'.$i, 'value'=>$row->payment_type, 'id'=>'payment_type_'.$i, 'class'=>'form-control input-sm', 'readonly'=>'true'));?>
 						<?php else: ?>
@@ -79,14 +109,14 @@
 		<div class="form-group form-group-sm">
 			<?php echo form_label($this->lang->line('sales_employee'), 'employee', array('class'=>'control-label col-xs-3')); ?>
 			<div class='col-xs-8'>
-				<?php echo form_dropdown('employee_id', $employees, $sale_info['employee_id'], 'id="employee_id" class="form-control"');?>
+				<?php echo form_dropdown('employee_id', $employees, $sale_info->employee_id, 'id="employee_id" class="form-control"');?>
 			</div>
 		</div>
 		
 		<div class="form-group form-group-sm">
 			<?php echo form_label($this->lang->line('sales_comment'), 'comment', array('class'=>'control-label col-xs-3')); ?>
 			<div class='col-xs-8'>
-				<?php echo form_textarea(array('name'=>'comment', 'value'=>$sale_info['comment'], 'id'=>'comment', 'class'=>'form-control input-sm'));?>
+				<?php echo form_textarea(array('name'=>'comment', 'value'=>$sale_info->comment, 'id'=>'comment', 'class'=>'form-control input-sm'));?>
 			</div>
 		</div>
 	</fieldset>
@@ -95,10 +125,10 @@
 <script type="text/javascript">
 $(document).ready(function()
 {	
-	<?php if(!empty($sale_info['email'])): ?>
+	<?php if(!empty($customer_info->email)): ?>
 		$('#send_invoice').click(function(event) {
-			if (confirm("<?php echo $this->lang->line('sales_invoice_confirm') . ' ' . $sale_info['email'] ?>")) {
-				$.get("<?php echo site_url($controller_name . '/send_pdf/' . $sale_info['sale_id']); ?>",
+			if (confirm("<?php echo $this->lang->line('sales_invoice_confirm') . ' ' . $customer_info->email ?>")) {
+				$.get("<?php echo site_url($controller_name . '/send_pdf/' . $sale_info->sale_id); ?>",
 					function(response) {
 						dialog_support.hide();
 						table_support.handle_submit("<?php echo site_url('sales'); ?>", response);
@@ -130,12 +160,12 @@ $(document).ready(function()
 
 	$('button#delete').click(function() {
 		dialog_support.hide();
-		table_support.do_delete("<?php echo site_url($controller_name); ?>", <?php echo $sale_info['sale_id']; ?>);
+		table_support.do_delete("<?php echo site_url($controller_name); ?>", <?php echo $sale_info->sale_id; ?>);
 	});
 
 	$('button#restore').click(function() {
 		dialog_support.hide();
-		table_support.do_restore("<?php echo site_url($controller_name); ?>", <?php echo $sale_info['sale_id']; ?>);
+		table_support.do_restore("<?php echo site_url($controller_name); ?>", <?php echo $sale_info->sale_id; ?>);
 	});
 
 	$('#sales_edit_form').validate($.extend(
@@ -162,7 +192,7 @@ $(document).ready(function()
 					url: "<?php echo site_url($controller_name . '/check_invoice_number')?>",
 					type: 'POST',
 					data: {
-						'sale_id': <?php echo $sale_info['sale_id']; ?>,
+						'sale_id': <?php echo $sale_info->sale_id; ?>,
 						'invoice_number': function() {
 							return $('#invoice_number').val();
 						}

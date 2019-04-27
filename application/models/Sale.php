@@ -113,6 +113,33 @@ class Sale extends CI_Model
 	}
 
 	/**
+	 * Get sales statistics info
+	 */
+	public function get_stats_info($sale_id)
+	{
+		$this->db->from('sales_stats');
+		$this->db->where('sale_id', $sale_id);
+		$query = $this->db->get();
+
+		if($query->num_rows() == 1)
+		{
+			return $query->row();
+		}
+		else
+		{
+			//Get empty base object,
+			$stats_obj = new stdClass();
+
+			foreach($this->db->list_fields('sales_stats') as $field)
+			{
+				$stats_obj->$field = 0;
+			}
+
+			return $stats_obj;
+		}
+	}
+
+	/**
 	 * Get number of rows for the takings (sales/manage) view
 	 */
 	public function get_found_rows($search, $filters)
@@ -470,6 +497,33 @@ class Sale extends CI_Model
 	}
 
 	/**
+	 * Gets sale by sale_id
+	 */
+	public function get_sale($sale_id)
+	{
+		$this->db->from('sales');
+		$this->db->where('sale_id', $sale_id);
+		$query = $this->db->get();
+
+		if($query->num_rows() == 1)
+		{
+			return $query->row();
+		}
+		else
+		{
+			$sales_obj = new stdClass();
+
+			//append those fields to base parent object, we we have a complete empty object
+			foreach($this->db->list_fields('sales') as $field)
+			{
+				$sales_obj->$field = '';
+			}
+
+			return $sales_obj;
+		}
+	}
+
+	/**
 	 * Gets invoice number by year
 	 */
 	public function get_invoice_number_for_year($year = '', $start_from = 0)
@@ -538,19 +592,43 @@ class Sale extends CI_Model
 			//Run these queries as a transaction, we want to make sure we do all or nothing
 			$this->db->trans_start();
 
-			// first delete all payments
-			$this->db->delete('sales_payments', array('sale_id' => $sale_id));
-
 			// add new payments
 			foreach($payments as $payment)
 			{
-				$sales_payments_data = array(
-					'sale_id' => $sale_id,
-					'payment_type' => $payment['payment_type'],
-					'payment_amount' => $payment['payment_amount']
-				);
+				$payment_id = $payment['payment_id'];
+				$payment_type = $payment['payment_type'];
+				$payment_amount = $payment['payment_amount'];
+				$payment_user = $payment['payment_user'];
 
-				$success = $this->db->insert('sales_payments', $sales_payments_data);
+				if($payment_id == - 1 && $payment_amount > 0)
+				{
+					// Add a new payment transaction
+					$sales_payments_data = array(
+						'sale_id' => $sale_id,
+						'payment_type' => $payment_type,
+						'payment_amount' => $payment_amount,
+						'payment_user' => $payment_user
+					);
+					$success = $this->db->insert('sales_payments', $sales_payments_data);
+				}
+
+				if($payment_id != - 1)
+				{
+					if($payment_amount > 0)
+					{
+						// Update existing payment transactions (payment_type only)
+						$sales_payments_data = array(
+							'payment_type' => $payment_type
+						);
+						$this->db->where('payment_id',$payment_id);
+						$success = $this->db->update('sales_payments', $sales_payments_data);
+					}
+					else
+					{
+						// Remove existing payment transactions  with a payment amount of zero
+						$success = $this->db->delete('sales_payments', array('payment_id' => $payment_id));
+					}
+				}
 			}
 
 			$this->db->trans_complete();
@@ -567,7 +645,7 @@ class Sale extends CI_Model
 	 * The sales_taxes variable needs to be initialized to an empty array before calling
 	 */
 	public function save($sale_id, &$sale_status, &$items, $customer_id, $employee_id, $comment, $invoice_number,
-							$work_order_number, $quote_number, $sale_type, $payments, $dinner_table, &$sales_taxes)
+							$work_order_number, $quote_number, $sale_type, $payments, $dinner_table, &$sales_taxes, $stats)
 	{
 		if($sale_id != -1)
 		{
@@ -610,6 +688,13 @@ class Sale extends CI_Model
 			$this->db->where('sale_id', $sale_id);
 			$this->db->update('sales', $sales_data);
 		}
+
+		if($stats != null)
+		{
+			$stats['sale_id'] = $sale_id;
+			$this->db->insert('sales_stats', $stats);
+		}
+
 		$total_amount = 0;
 		$total_amount_used = 0;
 		foreach($payments as $payment_id=>$payment)
@@ -633,9 +718,12 @@ class Sale extends CI_Model
 			$sales_payments_data = array(
 				'sale_id'		 => $sale_id,
 				'payment_type'	 => $payment['payment_type'],
-				'payment_amount' => $payment['payment_amount']
+				'payment_amount' => $payment['payment_amount'],
+				'payment_user'	 => $employee_id
 			);
+
 			$this->db->insert('sales_payments', $sales_payments_data);
+
 			$total_amount = floatval($total_amount) + floatval($payment['payment_amount']);
 		}
 
